@@ -1,4 +1,4 @@
-#include "cudaAbstractions.h"
+#include "cudaBasics.h"
 
 void setCudaDevice(const int32_t device)
 {
