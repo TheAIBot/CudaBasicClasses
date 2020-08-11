@@ -1,37 +1,38 @@
 #include "cudaBasics.h"
-
-void setCudaDevice(const int32_t device)
-{
-    if (cudaSetDevice(device) != cudaSuccess)
+namespace cudabasic {
+    void setCudaDevice(const int32_t device)
     {
-        throw std::runtime_error("cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
+        if (cudaSetDevice(device) != cudaError::cudaSuccess)
+        {
+            throw std::runtime_error("cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
+        }
     }
-}
 
-void resetCudaDevice()
-{
-    const cudaError_t cudaStatus = cudaDeviceReset();
-    if (cudaStatus != cudaError::cudaSuccess)
+    void resetCudaDevice()
     {
-        throw std::runtime_error("cudaDeviceReset failed!");
+        const cudaError_t cudaStatus = cudaDeviceReset();
+        if (cudaStatus != cudaError::cudaSuccess)
+        {
+            throw std::runtime_error("cudaDeviceReset failed!");
+        }
     }
-}
 
-void checkForCudaError()
-{
-    const cudaError_t cudaStatus = cudaGetLastError();
-    if (cudaStatus != cudaError::cudaSuccess)
+    void checkForCudaError()
     {
-        const std::string errorString(cudaGetErrorString(cudaStatus));
-        throw std::runtime_error("Cuda error: " + errorString);
+        const cudaError_t cudaStatus = cudaGetLastError();
+        if (cudaStatus != cudaError::cudaSuccess)
+        {
+            const std::string errorString(cudaGetErrorString(cudaStatus));
+            throw std::runtime_error("Cuda error: " + errorString);
+        }
     }
-}
 
-void cudaSynchronize()
-{
-    const cudaError_t cudaStatus = cudaDeviceSynchronize();
-    if (cudaStatus != cudaError::cudaSuccess)
+    void cudaSynchronize()
     {
-        throw std::runtime_error("Cuda error code: " + cudaStatus);
+        const cudaError_t cudaStatus = cudaDeviceSynchronize();
+        if (cudaStatus != cudaError::cudaSuccess)
+        {
+            throw std::runtime_error("Cuda error code: " + cudaStatus);
+        }
     }
 }
