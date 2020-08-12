@@ -56,8 +56,8 @@ namespace cudabasic
     }
     void cudaTimer::stopTimer()
     {
-        cudaEventSynchronize(endTime);
         cudaEventRecord(endTime);
+        cudaEventSynchronize(endTime);
     }
     float cudaTimer::getElapsedMiliseconds()
     {
