@@ -1,5 +1,8 @@
 #include "cudaBasics.h"
-namespace cudabasic {
+namespace cudabasic 
+{
+
+
     void setCudaDevice(const int32_t device)
     {
         if (cudaSetDevice(device) != cudaError::cudaSuccess)
@@ -34,5 +37,32 @@ namespace cudabasic {
         {
             throw std::runtime_error("Cuda error code: " + cudaStatus);
         }
+    }
+
+    cudaTimer::cudaTimer()
+    {
+        cudaEventCreate(&startTime);
+        cudaEventCreate(&endTime);
+    }
+    cudaTimer::~cudaTimer()
+    {
+        cudaEventDestroy(startTime);
+        cudaEventDestroy(endTime);
+    }
+
+    void cudaTimer::startTimer()
+    {
+        cudaEventRecord(startTime);
+    }
+    void cudaTimer::stopTimer()
+    {
+        cudaEventSynchronize(endTime);
+        cudaEventRecord(endTime);
+    }
+    float cudaTimer::getElapsedMiliseconds()
+    {
+        float time;
+        cudaEventElapsedTime(&time, startTime, endTime);
+        return time;
     }
 }

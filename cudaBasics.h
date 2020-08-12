@@ -79,4 +79,19 @@ namespace cudabasic
     void checkForCudaError();
     void cudaSynchronize();
 
+
+    class cudaTimer
+    {
+    private:
+        cudaEvent_t startTime;
+        cudaEvent_t endTime;
+
+    public:
+        cudaTimer();
+        ~cudaTimer();
+
+        void startTimer();
+        void stopTimer();
+        float getElapsedMiliseconds();
+    };
 }
