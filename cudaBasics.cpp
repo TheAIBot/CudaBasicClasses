@@ -41,28 +41,60 @@ namespace cudabasic
 
     cudaTimer::cudaTimer()
     {
-        cudaEventCreate(&startTime);
-        cudaEventCreate(&endTime);
+        cudaError_t cudaStatus = cudaEventCreate(&startTime);
+        if (cudaStatus != cudaError::cudaSuccess)
+        {
+            throw std::runtime_error("Cuda error code: " + cudaStatus);
+        }
+
+        cudaStatus = cudaEventCreate(&endTime);
+        if (cudaStatus != cudaError::cudaSuccess)
+        {
+            throw std::runtime_error("Cuda error code: " + cudaStatus);
+        }
     }
     cudaTimer::~cudaTimer()
     {
-        cudaEventDestroy(startTime);
-        cudaEventDestroy(endTime);
+        cudaError_t cudaStatus = cudaEventDestroy(startTime);
+        if (cudaStatus != cudaError::cudaSuccess)
+        {
+            throw std::runtime_error("Cuda error code: " + cudaStatus);
+        }
+
+        cudaStatus = cudaEventDestroy(endTime);
+        if (cudaStatus != cudaError::cudaSuccess)
+        {
+            throw std::runtime_error("Cuda error code: " + cudaStatus);
+        }
     }
 
     void cudaTimer::startTimer()
     {
-        cudaEventRecord(startTime);
+        const cudaError_t cudaStatus = cudaEventRecord(startTime);
     }
     void cudaTimer::stopTimer()
     {
-        cudaEventRecord(endTime);
-        cudaEventSynchronize(endTime);
+        cudaError_t cudaStatus = cudaEventRecord(endTime);
+        if (cudaStatus != cudaError::cudaSuccess)
+        {
+            throw std::runtime_error("Cuda error code: " + cudaStatus);
+        }
+
+        cudaStatus = cudaEventSynchronize(endTime);
+        if (cudaStatus != cudaError::cudaSuccess)
+        {
+            throw std::runtime_error("Cuda error code: " + cudaStatus);
+        }
     }
     float cudaTimer::getElapsedMiliseconds()
     {
         float time;
-        cudaEventElapsedTime(&time, startTime, endTime);
+        const cudaError_t cudaStatus = cudaEventElapsedTime(&time, startTime, endTime);
+        if (cudaStatus != cudaError::cudaSuccess)
+        {
+            throw std::runtime_error("Cuda error code: " + cudaStatus);
+        }
+
         return time;
     }
 }
