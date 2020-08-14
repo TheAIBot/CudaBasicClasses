@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <functional>
 
 namespace cudabasic
 {
@@ -93,5 +94,65 @@ namespace cudabasic
         void startTimer();
         void stopTimer();
         float getElapsedMiliseconds();
+    };
+
+    /// <summary>
+    /// Executes a cuda kernel
+    /// </summary>
+    /// <typeparam name="...Args"></typeparam>
+    /// <param name="kernel">Function pointer to the kernel</param>
+    /// <param name="blockDim">Block dimension for the kernel</param>
+    /// <param name="gridDim">Grid dimension for the kernel</param>
+    /// <param name="...args">Kernel arguments</param>
+    template<typename... Args>
+    void executeKernel(void(*kernel)(Args...), dim3 blockDim, dim3 gridDim, Args... args)
+    {
+        (*kernel) << <gridDim, blockDim >> > (args...);
+    }
+
+    /// <summary>
+    /// Benchmarks a cuda kernel by taking the average execution time over a set amount of kernel executions
+    /// </summary>
+    /// <typeparam name="...Args">Kernel argument types</typeparam>
+    template<typename... Args>
+    class cudaBench
+    {
+    private:
+        cudabasic::cudaTimer timer;
+        void(*kernel)(Args...);
+        int benchCount;
+
+    public:
+        /// <summary>
+        /// Make a benchmark for a specific kernel by running it a set amount of times
+        /// </summary>
+        /// <param name="cudaKernel">Cuda kernel to benchmark</param>
+        /// <param name="kernelExecutionCount">How many times to execute the kernel when benchmarking</param>
+        cudaBench(void(*cudaKernel)(Args...), uint32_t kernelExecutionCount)
+        {
+            kernel = cudaKernel;
+            benchCount = kernelExecutionCount;
+        }
+
+        /// <summary>
+        /// Benchmarks with the specified grid and kernel dimensions and kernel arguments
+        /// </summary>
+        /// <param name="blockDim">Size of a single block on threads</param>
+        /// <param name="gridDim">Size of the grid in blocks</param>
+        /// <param name="...args">Kernel arguments</param>
+        /// <returns>The average execution time</returns>
+        float benchmark(dim3 blockDim, dim3 gridDim, Args... args)
+        {
+            float time = 0.0f;
+            for (size_t i = 0; i < benchCount; i++)
+            {
+                timer.startTimer();
+                executeKernel(kernel, blockDim, gridDim, args...);
+                timer.stopTimer();
+                time += timer.getElapsedMiliseconds();
+            }
+            // << <gridDim, blockDim >> > 
+            return time / benchCount;
+        }
     };
 }
