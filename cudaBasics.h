@@ -113,6 +113,12 @@ namespace cudabasic
         (*kernel)<<<gridDim, blockDim>>>(args...);
     }
 
+	template<typename... Args>
+	void executeKernel(void(*kernel)(Args...), dim3 blockDim, dim3 gridDim, int sharedMemSize, Args... args)
+	{
+		(*kernel) << <gridDim, blockDim, sharedMemSize >> > (args...);
+	}
+
     /// <summary>
     /// Benchmarks a cuda kernel by taking the average execution time over a set amount of kernel executions
     /// </summary>
@@ -157,6 +163,27 @@ namespace cudabasic
             // << <gridDim, blockDim >> > 
             return time / benchCount;
         }
+
+		/// <summary>
+		/// Benchmarks with the specified grid and kernel dimensions and kernel arguments
+		/// </summary>
+		/// <param name="blockDim">Size of a single block on threads</param>
+		/// <param name="gridDim">Size of the grid in blocks</param>
+		/// <param name="...args">Kernel arguments</param>
+		/// <returns>The average execution time</returns>
+		float benchmark(dim3 blockDim, dim3 gridDim, int sharedMemSize, Args... args)
+		{
+			float time = 0.0f;
+			for (size_t i = 0; i < benchCount; i++)
+			{
+				timer.startTimer();
+				executeKernel(kernel, blockDim, gridDim, sharedMemSize, args...);
+				timer.stopTimer();
+				time += timer.getElapsedMiliseconds();
+			}
+			// << <gridDim, blockDim >> > 
+			return time / benchCount;
+		}
     };
 
 
@@ -175,7 +202,7 @@ namespace cudabasic
 	protected:
 		memPlacmenet place;
 
-		cpuGpuObject(memPlacmenet placce)
+		__device__ __host__ cpuGpuObject(memPlacmenet placce)
 		{
 			this->place = placce;
 		}
@@ -196,19 +223,11 @@ namespace cudabasic
 	/// </summary>
 	class Matrix : public cpuGpuObject<Matrix, float>
 	{
-	private:
-		Matrix(float* ptr, int columns, int rows) : cpuGpuObject(memPlacmenet::GPU)
-		{
-			this->ptr = ptr;
-			this->columns = columns;
-			this->rows = rows;
-		}
-
 	public:
 		float* ptr;
 		int columns;
 		int rows;
-	public:
+
 		Matrix(int columns, int rows) : cpuGpuObject(memPlacmenet::CPU)
 		{
 			this->ptr = new float[columns * rows];
@@ -216,7 +235,14 @@ namespace cudabasic
 			this->rows = rows;
 		}
 
-		~Matrix()
+		__device__ __host__ Matrix(float* ptr, int columns, int rows) : cpuGpuObject(memPlacmenet::GPU)
+		{
+			this->ptr = ptr;
+			this->columns = columns;
+			this->rows = rows;
+		}
+
+		__device__ __host__ ~Matrix()
 		{
 			if (place == memPlacmenet::CPU)
 			{
