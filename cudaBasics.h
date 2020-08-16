@@ -6,6 +6,9 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <limits>
+#include <random>
+#include <memory>
 
 namespace cudabasic
 {
@@ -107,7 +110,7 @@ namespace cudabasic
     template<typename... Args>
     void executeKernel(void(*kernel)(Args...), dim3 blockDim, dim3 gridDim, Args... args)
     {
-        (*kernel) << <gridDim, blockDim >> > (args...);
+        (*kernel)<<<gridDim, blockDim>>>(args...);
     }
 
     /// <summary>
@@ -155,4 +158,197 @@ namespace cudabasic
             return time / benchCount;
         }
     };
+
+
+
+
+
+	enum class memPlacmenet
+	{
+		CPU,
+		GPU
+	};
+
+	template<typename ObjectType, typename DataType>
+	class cpuGpuObject
+	{
+	protected:
+		memPlacmenet place;
+
+		cpuGpuObject(memPlacmenet placce)
+		{
+			this->place = placce;
+		}
+
+	public:
+		virtual int getMemOnGPU() = 0;
+		virtual ObjectType getAsGPUObject(DataType* gpuPtr) = 0;
+		virtual DataType* getCPUPtr() = 0;
+		memPlacmenet getMemoryLocation()
+		{
+			return place;
+		}
+	};
+
+
+	/// <summary>
+	/// Matrix class that's able to exist on both the CPU and GPU
+	/// </summary>
+	class Matrix : public cpuGpuObject<Matrix, float>
+	{
+	private:
+		Matrix(float* ptr, int columns, int rows) : cpuGpuObject(memPlacmenet::GPU)
+		{
+			this->ptr = ptr;
+			this->columns = columns;
+			this->rows = rows;
+		}
+
+	public:
+		float* ptr;
+		int columns;
+		int rows;
+	public:
+		Matrix(int columns, int rows) : cpuGpuObject(memPlacmenet::CPU)
+		{
+			this->ptr = new float[columns * rows];
+			this->columns = columns;
+			this->rows = rows;
+		}
+
+		~Matrix()
+		{
+			if (place == memPlacmenet::CPU)
+			{
+				delete[] ptr;
+			}
+		}
+
+		int getMemOnGPU() override
+		{
+			return columns * rows;
+		}
+
+		Matrix getAsGPUObject(float* gpuPtr) override
+		{
+			return Matrix(gpuPtr, columns, rows);
+		}
+
+		float* getCPUPtr() override
+		{
+			return ptr;
+		}
+
+		__device__ __host__ float* operator[](const int row)
+		{
+			return ptr + row * columns;
+		}
+
+		void makeRandom(float minValue, float maxValue)
+		{
+			std::default_random_engine rngGen;
+			std::uniform_real_distribution<float> dist(minValue, maxValue);
+
+			for (size_t i = 0; i < columns * rows; i++)
+			{
+				ptr[i] = dist(rngGen);
+			}
+		}
+
+		void transpose()
+		{
+			for (int i = 0; i < rows; i++)
+			{
+				for (int j = 0; j < i; j++)
+				{
+					float temp = (*this)[i][j];
+					(*this)[i][j] = (*this)[j][i];
+					(*this)[j][i] = temp;
+				}
+			}
+			int temp = rows;
+			rows = columns;
+			columns = temp;
+		}
+
+		std::shared_ptr<Matrix> operator*(Matrix& b)
+		{
+			if (rows != b.columns)
+			{
+				throw std::runtime_error("Matrix multiplication dimensions are incorrect.");
+			}
+
+			auto c = std::make_shared<Matrix>(columns, b.rows);
+			b.transpose();
+			for (int y = 0; y < (*c).columns; y++) {
+				for (int x = 0; x < (*c).columns; x++) {
+					for (int k = 0; k < columns; k++) {
+						(*c)[y][x] += (*this)[y][k] * b[x][k];
+					}
+				}
+			}
+			b.transpose();
+
+			return c;
+		}
+	};
+
+	template<typename ObjectType, typename DataType>
+	class cpuGpuTransporter
+	{
+	private:
+		std::shared_ptr<cpuGpuObject<ObjectType, DataType>> cpuObject;
+		float* gpuPtr;
+		int gpuPtrLengthInBytes;
+
+	public:
+		cpuGpuTransporter(std::shared_ptr<cpuGpuObject<ObjectType, DataType>> cpuObject)
+		{
+			if (cpuObject->getMemoryLocation() == memPlacmenet::GPU)
+			{
+				throw std::runtime_error("Object was on the GPU but it has to be on the CPU.");
+			}
+
+			this->cpuObject = cpuObject;
+
+			this->gpuPtrLengthInBytes = cpuObject->getMemOnGPU() * sizeof(DataType);
+			const cudaError_t status = cudaMalloc(&this->gpuPtr, gpuPtrLengthInBytes);
+			if (status != cudaError::cudaSuccess)
+			{
+				throw std::runtime_error("Failed to allocate cuda memory.");
+			}
+		}
+
+		ObjectType getGPUObject()
+		{
+			return cpuObject->getAsGPUObject(gpuPtr);
+		}
+
+		void copyToGPU()
+		{
+			const cudaError_t status = cudaMemcpy(gpuPtr, cpuObject->getCPUPtr(), gpuPtrLengthInBytes, cudaMemcpyKind::cudaMemcpyHostToDevice);
+			if (status != cudaError::cudaSuccess)
+			{
+				throw std::runtime_error("Failed to copy from host to device.");
+			}
+		}
+
+		void copyFromGPU()
+		{
+			const cudaError_t status = cudaMemcpy(cpuObject->getCPUPtr(), gpuPtr, gpuPtrLengthInBytes, cudaMemcpyKind::cudaMemcpyDeviceToHost);
+			if (status != cudaError::cudaSuccess)
+			{
+				throw std::runtime_error("Failed to copy from device from host.");
+			}
+		}
+
+		~cpuGpuTransporter()
+		{
+			const cudaError_t status = cudaFree(gpuPtr);
+			if (status != cudaError::cudaSuccess)
+			{
+				throw std::runtime_error("Failed to deallocate cuda memory.");
+			}
+		}
+	};
 }
