@@ -177,41 +177,47 @@ namespace cudabasic
             benchCount = kernelExecutionCount;
         }
 
-        /// <summary>
-        /// Benchmarks with the specified grid and kernel dimensions and kernel arguments
-        /// </summary>
-        /// <param name="blockDim">Size of a single block on threads</param>
-        /// <param name="gridDim">Size of the grid in blocks</param>
-        /// <param name="...args">Kernel arguments</param>
-        /// <returns>The average execution time</returns>
+		/// <summary>
+		/// Benchmarks with the specified kernel configuration
+		/// </summary>
+		/// <param name="blockDim">Block dimension for the kernel</param>
+		/// <param name="gridDim">Grid dimension for the kernel</param>
+		/// <param name="...args">Kernel arguments</param>
+		/// <returns>Average runtime of the kernel</returns>
         float benchmark(dim3 blockDim, dim3 gridDim, Args... args)
         {
-            float time = 0.0f;
-            for (size_t i = 0; i < benchCount; i++)
-            {
-                timer.startTimer();
-                executeKernel(kernel, blockDim, gridDim, args...);
-                timer.stopTimer();
-                time += timer.getElapsedMiliseconds();
-            }
-            // << <gridDim, blockDim >> > 
-            return time / benchCount;
+			return benchmark(blockDim, gridDim, 0, args...);
         }
 
 		/// <summary>
-		/// Benchmarks with the specified grid and kernel dimensions and kernel arguments
+		/// Benchmarks with the specified kernel configuration
 		/// </summary>
-		/// <param name="blockDim">Size of a single block on threads</param>
-		/// <param name="gridDim">Size of the grid in blocks</param>
+		/// <param name="blockDim">Block dimension for the kernel</param>
+		/// <param name="gridDim">Grid dimension for the kernel</param>
+		/// <param name="sharedMemSize">Shared memory in bytes</param>
 		/// <param name="...args">Kernel arguments</param>
-		/// <returns>The average execution time</returns>
+		/// <returns>Average runtime of the kernel</returns>
 		float benchmark(dim3 blockDim, dim3 gridDim, int sharedMemSize, Args... args)
+		{
+			return benchmark(blockDim, gridDim, sharedMemSize, 0, args...);
+		}
+
+		/// <summary>
+		/// Benchmarks with the specified kernel configuration
+		/// </summary>
+		/// <param name="blockDim">Block dimension for the kernel</param>
+		/// <param name="gridDim">Grid dimension for the kernel</param>
+		/// <param name="sharedMemSize">Shared memory in bytes</param>
+		/// <param name="stream">Cuda stream to launch the kernel on</param>
+		/// <param name="...args">Kernel arguments</param>
+		/// <returns>Average runtime of the kernel</returns>
+		float benchmark(dim3 blockDim, dim3 gridDim, int sharedMemSize, cudaStream_t stream, Args... args)
 		{
 			float time = 0.0f;
 			for (size_t i = 0; i < benchCount; i++)
 			{
 				timer.startTimer();
-				executeKernel(kernel, blockDim, gridDim, sharedMemSize, args...);
+				executeKernel(kernel, blockDim, gridDim, sharedMemSize, stream, args...);
 				timer.stopTimer();
 				time += timer.getElapsedMiliseconds();
 			}
