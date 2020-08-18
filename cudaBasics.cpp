@@ -53,7 +53,7 @@ namespace cudabasic
             throw std::runtime_error("Cuda error code: " + cudaStatus);
         }
     }
-    cudaTimer::~cudaTimer()
+    cudaTimer::~cudaTimer() noexcept(false)
     {
         cudaError_t cudaStatus = cudaEventDestroy(startTime);
         if (cudaStatus != cudaError::cudaSuccess)

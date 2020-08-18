@@ -64,7 +64,7 @@ namespace cudabasic
             return *cpuArray;
         }
 
-        ~cpuGpuArray()
+        ~cpuGpuArray() noexcept(false)
         {
             //deallocate gpu array
             const cudaError_t status = cudaFree(gpuArray);
@@ -92,7 +92,7 @@ namespace cudabasic
 
     public:
         cudaTimer();
-        ~cudaTimer();
+        ~cudaTimer() noexcept(false);
 
         void startTimer();
         void stopTimer();
