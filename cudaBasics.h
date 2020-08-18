@@ -45,14 +45,19 @@ namespace cudabasic
 
         std::vector<T>& copyFromGPU()
         {
-            const cudaError_t status = cudaMemcpy(&(*cpuArray)[0], gpuArray, arrLength * sizeof(T), cudaMemcpyKind::cudaMemcpyDeviceToHost);
-            if (status != cudaError::cudaSuccess)
-            {
-                throw std::runtime_error("Failed to copy from device from host.");
-            }
-
-            return getCPUArray();
+			return copyFromGPU(0, arrLength);
         }
+
+		std::vector<T>& copyFromGPU(int offset, int elementCount)
+		{
+			const cudaError_t status = cudaMemcpy(&(*cpuArray)[offset], gpuArray + offset, elementCount * sizeof(T), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+			if (status != cudaError::cudaSuccess)
+			{
+				throw std::runtime_error("Failed to copy from device from host.");
+			}
+
+			return getCPUArray();
+		}
 
         T* getGPUArray()
         {
