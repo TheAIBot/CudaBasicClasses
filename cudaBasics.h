@@ -9,6 +9,7 @@
 #include <limits>
 #include <random>
 #include <memory>
+#include <cassert>
 
 namespace cudabasic
 {
@@ -35,36 +36,152 @@ namespace cudabasic
 			}
 		}
 
-    public:
-        cpuGpuArray(const int32_t length)
-        {
-            this->arrLength = length;
-            const cudaError_t status = cudaMalloc(&this->gpuArray, length * sizeof(T));
-            if (status != cudaError::cudaSuccess)
-            {
-                throw std::runtime_error("Failed to allocate cuda memory.");
-            }
-
-            this->cpuArray = new std::vector<T>(length);
-        }
-
-        void copyToGPU()
-        {
-            const cudaError_t status = cudaMemcpy(gpuArray, &(*cpuArray)[0], arrLength * sizeof(T), cudaMemcpyKind::cudaMemcpyHostToDevice);
-            if (status != cudaError::cudaSuccess)
-            {
-                throw std::runtime_error("Failed to copy from host to device.");
-            }
-        }
-
-        std::vector<T>& copyFromGPU()
-        {
-			return copyFromGPU(0, arrLength);
-        }
-
-		std::vector<T>& copyFromGPU(int offset, int elementCount)
+		void synchronize() const
 		{
-			const cudaError_t status = cudaMemcpy(&(*cpuArray)[offset], gpuArray + offset, elementCount * sizeof(T), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+			cudaStreamSynchronize(stream);
+		}
+
+		operator cudaStream_t() const 
+		{ 
+			return stream; 
+		}
+	};
+
+	template<typename T>
+	class span
+	{
+	private:
+		T* arr;
+		uint32_t length;
+
+	public:
+		__device__ __host__ span(T* arrPtr, uint32_t length)
+		{
+			assert(arrPtr != nullptr);
+			this->arr = arrPtr;
+			this->length = length;
+		}
+		__device__ __host__ span()
+		{
+			this->arr = nullptr;
+			this->length = 0;
+		}
+
+		__device__ __host__ T& operator[](const uint32_t i)
+		{
+			assert(i < length);
+			return arr[i];
+		}
+
+		__device__ __host__ uint32_t size() const
+		{
+			return length;
+		}
+
+		__device__ __host__ span<T> slice(uint32_t offset, uint32_t length) const
+		{
+			assert(offset + length <= this->length);
+			return span<T>(arr + offset, length);
+		}
+
+		__device__ __host__ T* begin() const
+		{
+			return arr;
+		}
+
+		__device__ __host__ T* end() const
+		{
+			return arr + length;
+		}
+	};
+
+	enum class cudaPinOpt
+	{
+		Pinned,
+		NotPinned
+	};
+
+	template<typename T>
+	class cpuGpuArray
+	{
+	private:
+		T* gpuArray;
+		span<T> cpuArray;
+		cudaPinOpt pinChoise;
+
+	public:
+		cpuGpuArray(const uint32_t length) : cpuGpuArray(length, cudaPinOpt::NotPinned)
+		{
+		}
+
+		cpuGpuArray(const uint32_t length, const cudaPinOpt pinOpt) : pinChoise(pinOpt)
+		{
+			{
+				const cudaError_t status = cudaMalloc(&this->gpuArray, length * sizeof(T));
+				if (status != cudaError::cudaSuccess)
+				{
+					throw std::runtime_error("Failed to allocate cuda memory.");
+				}
+			}
+
+			if (pinOpt == cudaPinOpt::Pinned)
+			{
+				T* ptr;
+				const cudaError_t status = cudaMallocHost(&ptr, length * sizeof(T));
+				if (status != cudaError::cudaSuccess)
+				{
+					throw std::runtime_error("Failed to allocate pinned cuda memory.");
+				}
+
+				cpuArray = span<T>(ptr, length);
+			}
+			else if (pinOpt == cudaPinOpt::NotPinned)
+			{
+				cpuArray = span<T>(new T[length], length);
+			}
+			else
+			{
+				throw std::runtime_error("Invalid pin option.");
+			}
+		}
+
+		void copyToGPU()
+		{
+			copyToGPU(0, cpuArray.size());
+		}
+		void copyToGPU(const uint32_t offset, const uint32_t elementCount)
+		{
+			const cudaError_t status = cudaMemcpy(gpuArray + offset, cpuArray.begin()  + offset, elementCount * sizeof(T), cudaMemcpyKind::cudaMemcpyHostToDevice);
+			if (status != cudaError::cudaSuccess)
+			{
+				throw std::runtime_error("Failed to copy from host to device.");
+			}
+		}
+
+		void copyToGPUAsync(const cudaStream& stream)
+		{
+			copyToGPUAsync(0, cpuArray.size(), stream);
+		}
+		void copyToGPUAsync(const uint32_t offset, const uint32_t elementCount, const cudaStream& stream)
+		{
+			assert(offset + elementCount <= cpuArray.size());
+
+			const cudaError_t status = cudaMemcpyAsync(gpuArray + offset, cpuArray.begin() + offset, elementCount * sizeof(T), cudaMemcpyKind::cudaMemcpyHostToDevice, stream);
+			if (status != cudaError::cudaSuccess)
+			{
+				throw std::runtime_error("Failed to copy from host to device.");
+			}
+		}
+
+		span<T> copyFromGPU()
+		{
+			return copyFromGPU(0, cpuArray.size());
+		}
+		span<T> copyFromGPU(const uint32_t offset, const uint32_t elementCount)
+		{
+			assert(offset + elementCount <= cpuArray.size());
+
+			const cudaError_t status = cudaMemcpy(cpuArray.begin() + offset, gpuArray + offset, elementCount * sizeof(T), cudaMemcpyKind::cudaMemcpyDeviceToHost);
 			if (status != cudaError::cudaSuccess)
 			{
 				throw std::runtime_error("Failed to copy from device from host.");
@@ -73,34 +190,68 @@ namespace cudabasic
 			return getCPUArray();
 		}
 
-        T* getGPUArray()
-        {
-            return gpuArray;
-        }
+		void copyFromGPUAsync(const cudaStream& stream)
+		{
+			copyFromGPU(0, cpuArray.size());
+		}
+		void copyFromGPUAsync(const uint32_t offset, const uint32_t elementCount, const cudaStream& stream)
+		{
+			assert(offset + elementCount <= cpuArray.size());
 
-		const T* getGPUArrayConst()
+			const cudaError_t status = cudaMemcpyAsync(cpuArray.begin() + offset, gpuArray + offset, elementCount * sizeof(T), cudaMemcpyKind::cudaMemcpyDeviceToHost, stream);
+			if (status != cudaError::cudaSuccess)
+			{
+				throw std::runtime_error("Failed to copy from device from host.");
+			}
+		}
+
+		T* getGPUArray() const
+		{
+			return gpuArray;
+		}
+		const T* getGPUArrayConst() const
 		{
 			return gpuArray;
 		}
 
-        std::vector<T>& getCPUArray()
-        {
-            return *cpuArray;
-        }
+		span<T> getCPUArray() const
+		{
+			return cpuArray;
+		}
 
-        ~cpuGpuArray() noexcept(false)
-        {
-            //deallocate gpu array
-            const cudaError_t status = cudaFree(gpuArray);
-            if (status != cudaError::cudaSuccess)
-            {
-                throw std::runtime_error("Failed to deallocate cuda memory.");
-            }
+		int32_t size() const
+		{
+			return cpuArray.size();
+		}
 
-            //deallocate cpu array
-            delete cpuArray;
-        }
-    };
+		~cpuGpuArray() noexcept(false)
+		{
+			//deallocate gpu array
+			const cudaError_t status = cudaFree(gpuArray);
+			if (status != cudaError::cudaSuccess)
+			{
+				throw std::runtime_error("Failed to deallocate cuda memory.");
+			}
+
+			//deallocate cpu array
+			if (pinChoise == cudaPinOpt::Pinned)
+			{
+				const cudaError_t status = cudaFreeHost(cpuArray.begin());
+				if (status != cudaError::cudaSuccess)
+				{
+					throw std::runtime_error("Failed to deallocate pinned cuda memory.");
+				}
+			}
+			else if (pinChoise == cudaPinOpt::NotPinned)
+			{
+				delete[] cpuArray.begin();
+			}
+			else
+			{
+				throw std::runtime_error("Invalid pin option.");
+			}
+		}
+	};
 
 	template<typename T>
 	class gpuArray
