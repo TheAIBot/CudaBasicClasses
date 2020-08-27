@@ -13,13 +13,27 @@
 namespace cudabasic
 {
 
-    template<typename T>
-    class cpuGpuArray
-    {
-    private:
-        int32_t arrLength;
-        T* gpuArray;
-        std::vector<T>* cpuArray;
+	class cudaStream
+	{
+	private:
+		cudaStream_t stream;
+	public:
+		cudaStream()
+		{
+			const cudaError_t status = cudaStreamCreate(&stream);
+			if (status != cudaError::cudaSuccess)
+			{
+				throw std::runtime_error("Failed to allocate cuda stream.");
+			}
+		}
+		~cudaStream() noexcept(false)
+		{
+			const cudaError_t status = cudaStreamDestroy(stream);
+			if (status != cudaError::cudaSuccess)
+			{
+				throw std::runtime_error("Failed to deallocate cuda stream.");
+			}
+		}
 
     public:
         cpuGpuArray(const int32_t length)
