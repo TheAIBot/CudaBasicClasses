@@ -68,9 +68,9 @@ namespace cudabasic
 			float time = 0.0f;
 			for (size_t i = 0; i < benchCount; i++)
 			{
-				timer.startTimer();
+				timer.startTimer(stream);
 				executeKernel(kernel, blockDim, gridDim, sharedMemSize, stream, args...);
-				timer.stopTimer();
+				timer.stopTimer(stream);
 				time += timer.getElapsedMiliseconds();
 			}
 			// << <gridDim, blockDim >> > 

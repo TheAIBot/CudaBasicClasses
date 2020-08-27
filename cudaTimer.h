@@ -15,7 +15,9 @@ namespace cudabasic
         ~cudaTimer() noexcept(false);
 
         void startTimer();
+        void startTimer(cudaStream_t stream);
         void stopTimer();
+        void stopTimer(cudaStream_t stream);
         float getElapsedMiliseconds();
     };
 }

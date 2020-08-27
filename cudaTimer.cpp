@@ -34,11 +34,24 @@ namespace cudabasic
 
     void cudaTimer::startTimer()
     {
-        const cudaError_t cudaStatus = cudaEventRecord(startTime);
+        startTimer(0);
     }
+    void cudaTimer::startTimer(cudaStream_t stream)
+    {
+        const cudaError_t cudaStatus = cudaEventRecord(startTime, stream);
+        if (cudaStatus != cudaError::cudaSuccess)
+        {
+            throw std::runtime_error("Cuda error code: " + cudaStatus);
+        }
+    }
+
     void cudaTimer::stopTimer()
     {
-        cudaError_t cudaStatus = cudaEventRecord(endTime);
+        stopTimer(0);
+    }
+    void cudaTimer::stopTimer(cudaStream_t stream)
+    {
+        cudaError_t cudaStatus = cudaEventRecord(endTime, stream);
         if (cudaStatus != cudaError::cudaSuccess)
         {
             throw std::runtime_error("Cuda error code: " + cudaStatus);
