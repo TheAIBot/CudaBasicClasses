@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <cassert>
 #include "span.h"
+#include "cudaStream.h"
 
 namespace cudabasic
 {
