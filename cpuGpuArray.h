@@ -137,7 +137,7 @@ namespace cudabasic
 			return cpuArray;
 		}
 
-		int32_t size() const
+		uint32_t size() const
 		{
 			return cpuArray.size();
 		}
