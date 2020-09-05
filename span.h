@@ -38,6 +38,18 @@ namespace cudabasic
 			return arr[i];
 		}
 
+		__device__ __host__ T& operator[](const std::size_t i)
+		{
+			assert(i < length);
+			return arr[i];
+		}
+
+		__device__ __host__ T& operator[](const std::size_t i) const
+		{
+			assert(i < length);
+			return arr[i];
+		}
+
 		__device__ __host__ uint32_t size() const
 		{
 			return length;
