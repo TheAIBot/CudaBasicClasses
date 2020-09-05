@@ -123,13 +123,13 @@ namespace cudabasic
 			}
 		}
 
-		T* getGPUArray() const
+		span<T> getGPUArray() const
 		{
-			return gpuArray;
+			return span<T>(gpuArray, cpuArray.size());
 		}
-		const T* getGPUArrayConst() const
+		const span<T> getGPUArrayConst() const
 		{
-			return gpuArray;
+			return span<T>(gpuArray, cpuArray.size());
 		}
 
 		span<T> getCPUArray() const
