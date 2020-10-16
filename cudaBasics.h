@@ -69,7 +69,7 @@ namespace cudabasic
 		const cudaError_t status = cudaLaunchKernel((void*)kernel, gridDim, blockDim, &arguments[0], sharedMemSize, stream);
 		if (status != cudaError::cudaSuccess)
 		{
-			throw std::exception("Failed to launch kernel.");
+			throw std::runtime_error("Failed to launch kernel.");
 		}
 	}
 
