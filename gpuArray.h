@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cassert>
 #include <stdexcept>
+#include <vector>
 #include "span.h"
 
 namespace cudabasic
@@ -41,13 +42,22 @@ namespace cudabasic
 		}
 		void copyToGPU(std::vector<T>& src, const uint32_t srcOffset, const uint32_t srcLength, const uint32_t dstOffset)
 		{
-			assert(srcOffset + srcLength <= src.size());
-			assert(dstOffset + srcLength <= arrLength);
-
-			const cudaError_t status = cudaMemcpy(gpuArr + dstOffset, &src[0] + srcOffset, srcLength * sizeof(T), cudaMemcpyKind::cudaMemcpyHostToDevice);
-			if (status != cudaError::cudaSuccess)
+			if constexpr (std::is_same<T, bool>::value)
 			{
-				throw std::runtime_error("Failed to copy from host to device.");
+				throw std::runtime_error("Currently not handling copying bool to the GPU.");
+			}
+			else
+			{
+				assert(srcOffset + srcLength <= src.size());
+				assert(dstOffset + srcLength <= arrLength);
+
+				void* dstPtr = reinterpret_cast<void*>(gpuArr + dstOffset);
+				const void* srcPtr = reinterpret_cast<void*>(src.data() + srcOffset);
+				const cudaError_t status = cudaMemcpy(dstPtr, srcPtr, srcLength * sizeof(T), cudaMemcpyKind::cudaMemcpyHostToDevice);
+				if (status != cudaError::cudaSuccess)
+				{
+					throw std::runtime_error("Failed to copy from host to device.");
+				}	
 			}
 		}
 
@@ -57,15 +67,24 @@ namespace cudabasic
 		}
 		std::vector<T> copyToCPU(const uint32_t copySrcOffset, const uint32_t copyLength) const
 		{
-			std::vector<T> values(copyLength);
-
-			const cudaError_t status = cudaMemcpy(&values[0], gpuArr + copySrcOffset, copyLength * sizeof(T), cudaMemcpyKind::cudaMemcpyDeviceToHost);
-			if (status != cudaError::cudaSuccess)
+			if constexpr (std::is_same<T, bool>::value)
 			{
-				throw std::exception("Failed to copy from device from host.");
+				throw std::runtime_error("Currently not handling copying bool from the GPU.");
 			}
+			else
+			{
+				std::vector<T> values(copyLength);
 
-			return values;
+				void* dstPtr = reinterpret_cast<void*>(values.data());
+				const void* srcPtr = reinterpret_cast<void*>(gpuArr + copySrcOffset);
+				const cudaError_t status = cudaMemcpy(dstPtr, srcPtr, copyLength * sizeof(T), cudaMemcpyKind::cudaMemcpyDeviceToHost);
+				if (status != cudaError::cudaSuccess)
+				{
+					throw std::runtime_error("Failed to copy from device from host.");
+				}
+
+				return values;
+			}
 		}
 
 		span<T> getGPUArray() const
