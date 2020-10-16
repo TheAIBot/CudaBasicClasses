@@ -300,3 +300,12 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# CMake stuff
+**/build/**
+
+# The library itself
+libcuda_basics.a
+
+# vscode stuff
+.vscode/**
