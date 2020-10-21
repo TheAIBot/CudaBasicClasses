@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <vector>
 #include "span.h"
+#include "cudaStream.h"
 
 namespace cudabasic
 {
@@ -84,6 +85,30 @@ namespace cudabasic
 				}
 
 				return values;
+			}
+		}
+
+		void copyToGPUArray(gpuArray<T>& gpuArr) const
+		{
+			assert(gpuArr.size() == this->size());
+
+			const cudaError_t status = cudaMemcpy(gpuArr.gpuArr, this->gpuArr, this->size() * sizeof(T), cudaMemcpyKind::cudaMemcpyDeviceToDevice);
+			if (status != cudaError::cudaSuccess)
+			{
+				gpuArray<T>::checkForCudaError();
+				std::cout << "Failed to copy from device to device." << std::endl;
+			}
+		}
+
+		void copyToGPUArray(gpuArray<T>& gpuArr, const cudaStream_t& stream) const
+		{
+			assert(gpuArr.size() == this->size());
+
+			const cudaError_t status = cudaMemcpyAsync(gpuArr.gpuArr, this->gpuArr, this->size() * sizeof(T), cudaMemcpyKind::cudaMemcpyDeviceToDevice, stream);
+			if (status != cudaError::cudaSuccess)
+			{
+				gpuArray<T>::checkForCudaError();
+				std::cout << "Failed to copy from device to device." << std::endl;
 			}
 		}
 
