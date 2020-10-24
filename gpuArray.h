@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cassert>
 #include <stdexcept>
+#include <iostream>
 #include <vector>
 #include "span.h"
 #include "cudaStream.h"
@@ -95,7 +96,6 @@ namespace cudabasic
 			const cudaError_t status = cudaMemcpy(gpuArr.gpuArr, this->gpuArr, this->size() * sizeof(T), cudaMemcpyKind::cudaMemcpyDeviceToDevice);
 			if (status != cudaError::cudaSuccess)
 			{
-				gpuArray<T>::checkForCudaError();
 				std::cout << "Failed to copy from device to device." << std::endl;
 			}
 		}
@@ -107,7 +107,6 @@ namespace cudabasic
 			const cudaError_t status = cudaMemcpyAsync(gpuArr.gpuArr, this->gpuArr, this->size() * sizeof(T), cudaMemcpyKind::cudaMemcpyDeviceToDevice, stream);
 			if (status != cudaError::cudaSuccess)
 			{
-				gpuArray<T>::checkForCudaError();
 				std::cout << "Failed to copy from device to device." << std::endl;
 			}
 		}
